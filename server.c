@@ -18,19 +18,20 @@ int main() {
         perror("Bind failed");
         return 1;
     }
-    printf("Server listening on port %d\n", ntohs(server_addr.sin_port));
 
     char buffer[1024];
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
 
     while (1) {
-        ssize_t n = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &client_addr_len);
-        if (n < 0) {
+        ssize_t received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &client_addr_len);
+        if (received_msg_len < 0) {
             perror("Receive failed");
             continue;
         }
-        printf("Received message: %.*s \n", (int)n, buffer);
+        printf("Received message: %.*s \n", (int)received_msg_len, buffer);
+        int sent_msg_len = sendto(socket_id, buffer, received_msg_len, 0, (const struct sockaddr *)&client_addr, client_addr_len);
+        printf("Echoed %d bytes back to client\n", sent_msg_len);
     }
     return 0;
 }
