@@ -1,0 +1,27 @@
+#include <stdio.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <string.h>
+
+int main() {
+    int socket_id = socket(AF_INET, SOCK_DGRAM, 0);
+    if (socket_id < 0) {
+        perror("Socket creation failed");
+        return 1;
+    }
+
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(9001);
+    server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    char *message = "Hello, Server!";
+    int n = sendto(socket_id, message, strlen(message), 0, (const struct sockaddr *)&server_addr, sizeof(server_addr));
+    if (n < 0) {
+        perror("Send failed");
+        return 1;
+    }
+    printf("sent %d bytes! \n", n);
+    return 0;
+}
