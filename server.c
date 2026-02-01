@@ -20,7 +20,7 @@ int main() {
         return 1;
     }
 
-    const uint32_t WINDOW_SIZE = 1024;
+    const uint32_t WINDOW_SIZE = 1052;
     char buffer[WINDOW_SIZE];
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
@@ -31,6 +31,10 @@ int main() {
             perror("Receive failed");
             continue;
         }
+        tcp_packet_t packet;
+        packet.seq_num = ntohl(*(uint32_t *)(buffer + 4));
+        printf("Received packet with seq_num: %u\n", packet.seq_num);
+    
         printf("Received message: %.*s \n", (int)received_msg_len, buffer);
         int sent_msg_len = sendto(socket_id, buffer, received_msg_len, 0, (const struct sockaddr *)&client_addr, client_addr_len);
         printf("Echoed %d bytes back to client\n", sent_msg_len);

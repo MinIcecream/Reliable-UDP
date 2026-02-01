@@ -12,15 +12,23 @@
 
 typedef struct {
     uint32_t flags;
-    uint32_t ack;
     uint32_t seq_num;
+    uint32_t ack;
     char payload[MAX_PAYLOAD_SIZE];
     uint16_t payload_len;
 } tcp_packet_t;
 
+typedef enum {
+    SYN_SENT,
+    SYN_RECEIVED,
+    ESTABLISHED,
+    CLOSED,
+} connection_state_t;
+
 typedef struct {
     uint32_t curr_seq; // Current sequence number to send to peer
     uint32_t expected_ack; // Next expected acknowledgment number from peer
+    connection_state_t state;
 } connection_t;
 
 #endif // COMMON_H
