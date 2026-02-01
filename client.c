@@ -3,6 +3,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include "common.h"
 
 int main() {
     int socket_id = socket(AF_INET, SOCK_DGRAM, 0);
@@ -13,7 +14,7 @@ int main() {
 
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(9001);
+    server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     socklen_t server_addr_len = sizeof(server_addr);
 
