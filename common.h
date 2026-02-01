@@ -18,4 +18,9 @@ typedef struct {
     uint16_t payload_len;
 } tcp_packet_t;
 
+typedef struct {
+    uint32_t curr_seq; // Current sequence number to send to peer
+    uint32_t expected_ack; // Next expected acknowledgment number from peer
+} connection_t;
+
 #endif // COMMON_H
