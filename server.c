@@ -25,14 +25,45 @@ int main() {
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
 
+    connection_t connection;
+    connection.curr_seq = rand();
+    connection.state = CLOSED;
+
     while (1) {
         ssize_t received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &client_addr_len);
         if (received_msg_len < 0) {
             perror("Receive failed");
             continue;
         }
-        tcp_packet_t packet;
-        packet.seq_num = ntohl(*(uint32_t *)(buffer + 4));
+
+        tcp_packet_t packet = decode_packet(buffer);
+        switch(connection.state) {
+            case CLOSED:
+                printf("flags: %u\n", packet.flags);
+                if (packet.flags & FLAG_SYN) {
+                    connection.expected_ack = packet.seq_num + 1;
+
+                    tcp_packet_t syn_ack_packet;
+                    memset(&syn_ack_packet, 0, sizeof(syn_ack_packet));
+                    syn_ack_packet.flags = FLAG_SYN | FLAG_ACK;
+                    syn_ack_packet.seq_num = htonl(connection.curr_seq);
+                    syn_ack_packet.ack = htonl(connection.expected_ack);
+                    int result = send_packet(syn_ack_packet, socket_id, &client_addr, client_addr_len);
+                    if (result != 0) {
+                        fprintf(stderr, "Failed to send SYN-ACK packet\n");
+                        continue;
+                    }
+                    connection.state = SYN_RECEIVED;
+                }
+                break;
+            case SYN_SENT:
+                break;
+            case SYN_RECEIVED:
+                break;
+            case ESTABLISHED:
+                break;
+        }
+        printf("current state: %d\n", connection.state);
         printf("Received packet with seq_num: %u\n", packet.seq_num);
     
         printf("Received message: %.*s \n", (int)received_msg_len, buffer);

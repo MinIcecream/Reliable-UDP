@@ -1,4 +1,7 @@
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
+
 #ifndef COMMON_H
 #define COMMON_H
 
@@ -14,8 +17,8 @@ typedef struct {
     uint32_t flags;
     uint32_t seq_num;
     uint32_t ack;
-    char payload[MAX_PAYLOAD_SIZE];
     uint16_t payload_len;
+    char payload[MAX_PAYLOAD_SIZE];
 } tcp_packet_t;
 
 typedef enum {
@@ -30,5 +33,32 @@ typedef struct {
     uint32_t expected_ack; // Next expected acknowledgment number from peer
     connection_state_t state;
 } connection_t;
+
+tcp_packet_t decode_packet(char * buffer) {
+    tcp_packet_t packet;
+    packet.flags = ntohl(*(uint32_t *)buffer);
+    packet.seq_num = ntohl(*(uint32_t *)(buffer + 4));
+    packet.ack = ntohl(*(uint32_t *)(buffer + 8));
+    packet.payload_len = ntohs(*(uint16_t *)(buffer + 12));
+    memcpy(packet.payload, buffer + 14, packet.payload_len);
+    return packet;
+}
+
+// Sends packet to target ip and port.
+// Returns 0 on success, 1 on failure.
+int send_packet(tcp_packet_t packet, int socket_id, struct sockaddr_in *destination_addr, socklen_t destination_addr_len) {
+    packet.flags = htonl(packet.flags);
+    packet.seq_num = htonl(packet.seq_num);
+    packet.ack = htonl(packet.ack);
+    packet.payload_len = htons(packet.payload_len);
+
+    ssize_t sent_bytes = sendto(socket_id, &packet, sizeof(packet), 0, (const struct sockaddr *)destination_addr, destination_addr_len);
+    if (sent_bytes < 0) {
+        perror("Failed to send SYN packet");
+        return 1;
+    }
+    return 0;
+}
+
 
 #endif // COMMON_H
