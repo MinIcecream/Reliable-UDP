@@ -36,7 +36,8 @@ int main() {
             continue;
         }
 
-        tcp_packet_t packet = decode_packet(buffer);
+        tcp_packet_t packet;
+        deserialize_packet(buffer, &packet);
         switch(connection.state) {
             case CLOSED:
                 printf("flags: %u\n", packet.flags);

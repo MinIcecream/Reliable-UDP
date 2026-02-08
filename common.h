@@ -34,18 +34,22 @@ typedef struct {
     connection_state_t state;
 } connection_t;
 
-tcp_packet_t decode_packet(char * buffer) {
-    tcp_packet_t packet;
-    packet.flags = ntohl(*(uint32_t *)buffer);
-    packet.seq_num = ntohl(*(uint32_t *)(buffer + 4));
-    packet.ack = ntohl(*(uint32_t *)(buffer + 8));
-    packet.payload_len = ntohs(*(uint16_t *)(buffer + 12));
-    memcpy(packet.payload, buffer + 14, packet.payload_len);
-    return packet;
+void serialize_packet(tcp_packet_t packet, char *buffer) {
+    *(uint32_t *)buffer = htonl(packet.flags);
+    *(uint32_t *)(buffer + 4) = htonl(packet.seq_num);
+    *(uint32_t *)(buffer + 8) = htonl(packet.ack);
+    *(uint16_t *)(buffer + 12) = htons(packet.payload_len);
+    memcpy(buffer + 14, packet.payload, packet.payload_len);
 }
 
-// Sends packet to target ip and port.
-// Returns 0 on success, 1 on failure.
+void deserialize_packet(char * buffer, tcp_packet_t* packet) {
+    packet->flags = ntohl(*(uint32_t *)buffer);
+    packet->seq_num = ntohl(*(uint32_t *)(buffer + 4));
+    packet->ack = ntohl(*(uint32_t *)(buffer + 8));
+    packet->payload_len = ntohs(*(uint16_t *)(buffer + 12));
+    memcpy(packet->payload, buffer + 14, packet->payload_len);
+}
+
 int send_packet(tcp_packet_t packet, int socket_id, struct sockaddr_in *destination_addr, socklen_t destination_addr_len) {
     packet.flags = htonl(packet.flags);
     packet.seq_num = htonl(packet.seq_num);
