@@ -7,6 +7,7 @@
 
 #define PORT 9001
 #define MAX_PAYLOAD_SIZE 1024
+#define MAX_PACKET_SIZE (14 + MAX_PAYLOAD_SIZE) // 14 bytes for header
 
 #define FLAG_ACK 0x1
 #define FLAG_SYN 0x2
@@ -30,7 +31,7 @@ typedef enum {
 
 typedef struct {
     uint32_t curr_seq; // Current sequence number to send to peer
-    uint32_t expected_ack; // Next expected acknowledgment number from peer
+    uint32_t next_expected; // Next expected byte to receive from peer
     connection_state_t state;
 } connection_t;
 

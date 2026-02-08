@@ -40,36 +40,45 @@ int main() {
         deserialize_packet(buffer, &packet);
         switch(connection.state) {
             case CLOSED:
-                printf("flags: %u\n", packet.flags);
+                // if packet is SYN, respond with SYN_ACK and transition to SYN_RECEIVED.
                 if (packet.flags & FLAG_SYN) {
-                    connection.expected_ack = packet.seq_num + 1;
+                    connection.next_expected = packet.seq_num + 1;
 
                     tcp_packet_t syn_ack_packet;
                     memset(&syn_ack_packet, 0, sizeof(syn_ack_packet));
                     syn_ack_packet.flags = FLAG_SYN | FLAG_ACK;
-                    syn_ack_packet.seq_num = htonl(connection.curr_seq);
-                    syn_ack_packet.ack = htonl(connection.expected_ack);
+                    syn_ack_packet.seq_num = connection.curr_seq;
+                    syn_ack_packet.ack = connection.next_expected;
+                    serialize_packet(syn_ack_packet, buffer);
                     int result = send_packet(syn_ack_packet, socket_id, &client_addr, client_addr_len);
                     if (result != 0) {
                         fprintf(stderr, "Failed to send SYN-ACK packet\n");
                         continue;
                     }
                     connection.state = SYN_RECEIVED;
+                    printf("Sent SYN-ACK packet with seq_num: %u and ack: %u\n", syn_ack_packet.seq_num, syn_ack_packet.ack);
                 }
                 break;
-            case SYN_SENT:
-                break;
             case SYN_RECEIVED:
+                // if client responds with ACK and ACK is correct, transition to ESTABLISHED.
+                // else, close connection and exit.
+                if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection.curr_seq + 1) {
+                    printf("Received ACK, connection established!\n");
+                    connection.state = ESTABLISHED;
+                }
+                else {
+                    fprintf(stderr, "Failed to establish connection, expected ACK with ack_num: %u\n", connection.curr_seq + 1);
+                    connection.state = CLOSED;
+                }
                 break;
             case ESTABLISHED:
+                // if packet seq_number not expected, resend previous ack.
+                // else, send ACK for packet and process payload.
+                break;
+            default:
+            // should not reach here
                 break;
         }
-        printf("current state: %d\n", connection.state);
-        printf("Received packet with seq_num: %u\n", packet.seq_num);
-    
-        printf("Received message: %.*s \n", (int)received_msg_len, buffer);
-        int sent_msg_len = sendto(socket_id, buffer, received_msg_len, 0, (const struct sockaddr *)&client_addr, client_addr_len);
-        printf("Echoed %d bytes back to client\n", sent_msg_len);
     }
     return 0;
 }

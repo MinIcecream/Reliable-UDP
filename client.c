@@ -8,6 +8,7 @@
 
 int main() {
     int socket_id = socket(AF_INET, SOCK_DGRAM, 0);
+
     if (socket_id < 0) {
         perror("Socket creation failed");
         return 1;
@@ -35,16 +36,54 @@ int main() {
     }
     connection.state = SYN_SENT;
     printf("Sent SYN packet with seq_num: %u\n", connection.curr_seq);
-    printf("current state: %d\n", connection.state);
-    // char *message = "Hello, Server!";
-    // int sent_msg_len = sendto(socket_id, message, strlen(message), 0, (const struct sockaddr *)&server_addr, sizeof(server_addr));
-    // if (sent_msg_len < 0) {
-    //     perror("Send failed");
-    //     return 1;
-    // }
-    // printf("sent %d bytes! \n", sent_msg_len);
-    // char buffer[1024];
-    // int received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_addr_len);
-    // printf("Received message back from server: %.*s \n", received_msg_len, buffer);
-    // return 0;
+
+    while (1) {
+        char buffer[MAX_PAYLOAD_SIZE];
+        int received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_addr_len);
+
+        if (received_msg_len < 0) {
+            perror("Receive failed");
+            continue;
+        }
+        tcp_packet_t packet;
+        deserialize_packet(buffer, &packet);
+        
+        switch(connection.state) {
+            case SYN_SENT:
+                //if server responds with SYN_ACK, send ACK and transition to ESTABLISHED.
+                //else, close connection and exit.
+                if ((packet.flags & (FLAG_SYN | FLAG_ACK)) == (FLAG_SYN | FLAG_ACK) && packet.ack == connection.curr_seq + 1) {
+                    printf("Received SYN_ACK!\n");
+                    connection.next_expected = packet.seq_num + 1;
+                    connection.state = ESTABLISHED;
+                    connection.curr_seq += 1;
+                    tcp_packet_t ack_packet;
+                    memset(&ack_packet, 0, sizeof(ack_packet));
+                    ack_packet.flags = FLAG_ACK;
+                    ack_packet.seq_num = connection.curr_seq;
+                    ack_packet.ack = connection.next_expected;
+                    serialize_packet(ack_packet, buffer);
+                    int result = send_packet(ack_packet, socket_id, &server_addr, server_addr_len);
+                    if (result != 0) {
+                        fprintf(stderr, "Failed to send ACK packet\n");
+                        continue;
+                    }
+                    printf("Sent ACK packet with seq_num: %u and ack: %u\n", ack_packet.seq_num, ack_packet.ack);
+                    printf("Connection established!\n");
+                }
+                else {
+                    fprintf(stderr, "Failed to establish connection: expected SYN-ACK packet\n");
+                    return 1;
+                }
+                break;
+            case ESTABLISHED:
+                // if ACK not in window(previously sent ACK + window size), close connection and exit.
+                // send packets starting at ACK
+                break;
+            default:
+                // should not reach here
+                break;
+        }
+    }
+    return 0;    
 }
