@@ -34,8 +34,9 @@ int main() {
         fprintf(stderr, "Failed to send SYN packet\n");
         return 1;
     }
-    connection.state = SYN_SENT;
     printf("Sent SYN packet with seq_num: %u\n", connection.curr_seq);
+    connection.curr_seq += 1;
+    connection.state = SYN_SENT;
 
     while (1) {
         char buffer[MAX_PAYLOAD_SIZE];
@@ -52,11 +53,10 @@ int main() {
             case SYN_SENT:
                 //if server responds with SYN_ACK, send ACK and transition to ESTABLISHED.
                 //else, close connection and exit.
-                if ((packet.flags & (FLAG_SYN | FLAG_ACK)) == (FLAG_SYN | FLAG_ACK) && packet.ack == connection.curr_seq + 1) {
+                if ((packet.flags & (FLAG_SYN | FLAG_ACK)) == (FLAG_SYN | FLAG_ACK) && packet.ack == connection.curr_seq) {
                     printf("Received SYN_ACK!\n");
                     connection.next_expected = packet.seq_num + 1;
                     connection.state = ESTABLISHED;
-                    connection.curr_seq += 1;
                     tcp_packet_t ack_packet;
                     memset(&ack_packet, 0, sizeof(ack_packet));
                     ack_packet.flags = FLAG_ACK;
@@ -70,6 +70,16 @@ int main() {
                     }
                     printf("Sent ACK packet with seq_num: %u and ack: %u\n", ack_packet.seq_num, ack_packet.ack);
                     printf("Connection established!\n");
+                    connection.curr_seq += 1;
+
+                    // Connection established. Send first data packet.
+                    tcp_packet_t data_packet;
+                    memset(&data_packet, 0, sizeof(data_packet));
+                    data_packet.flags = FLAG_DAT;
+                    data_packet.seq_num = connection.curr_seq;
+                    printf("data packet seq_num: %u\n", data_packet.seq_num);
+                    connection.curr_seq += 1;
+
                 }
                 else {
                     fprintf(stderr, "Failed to establish connection: expected SYN-ACK packet\n");
