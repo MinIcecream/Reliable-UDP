@@ -6,6 +6,8 @@
 #include "common.h"
 #include <stdlib.h>
 
+const char* MSG = "Hello world";
+
 int main() {
     int socket_id = socket(AF_INET, SOCK_DGRAM, 0);
 
@@ -14,12 +16,14 @@ int main() {
         return 1;
     }
 
+    // init socket
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
     socklen_t server_addr_len = sizeof(server_addr);
 
+    // init connection
     connection_t connection;
     connection.curr_seq = rand();
     connection.state = CLOSED;
@@ -38,7 +42,7 @@ int main() {
     connection.curr_seq += 1;
     connection.state = SYN_SENT;
 
-    while (1) {
+    while (connection.state != CLOSED) {
         char buffer[MAX_PAYLOAD_SIZE];
         int received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_addr_len);
 
@@ -95,6 +99,8 @@ int main() {
                 }
                 break;
             case ESTABLISHED:
+                // if receive expected ack within timeout, send next packet.
+                // Else, resend.
                 printf("Received packet with seq_num: %u and ack: %u\n", packet.seq_num, packet.ack);
                 printf("curr_seq: %u, next_expected: %u\n", connection.curr_seq, connection.next_expected);
                 if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection.curr_seq) {
@@ -103,8 +109,6 @@ int main() {
                 else {
                     fprintf(stderr, "Failed to receive ACK for data packet\n");
                 }
-                // if ACK not in window(previously sent ACK + window size), close connection and exit.
-                // send packets starting at ACK
                 break;
             default:
                 // should not reach here

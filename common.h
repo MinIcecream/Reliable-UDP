@@ -8,6 +8,7 @@
 #define PORT 9001
 #define MAX_PAYLOAD_SIZE 1024
 #define MAX_PACKET_SIZE (14 + MAX_PAYLOAD_SIZE) // 14 bytes for header
+#define TIMEOUT_SECONDS 5
 
 #define FLAG_ACK 0x1
 #define FLAG_SYN 0x2

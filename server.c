@@ -10,21 +10,25 @@ int main() {
         return 1;
     }
 
+    // init socket
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(PORT);
     server_addr.sin_addr.s_addr = INADDR_ANY;
 
+    // bind socket
     if (bind(socket_id, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
         perror("Bind failed");
         return 1;
     }
 
+    // init buffer and client address
     const uint32_t WINDOW_SIZE = 1052;
     char buffer[WINDOW_SIZE];
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
 
+    // init connection
     connection_t connection;
     connection.curr_seq = rand();
     connection.state = CLOSED;
