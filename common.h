@@ -36,6 +36,7 @@ typedef struct {
     connection_state_t state;
 } connection_t;
 
+// Serialize packet into buffer
 void serialize_packet(tcp_packet_t packet, char *buffer) {
     *(uint32_t *)buffer = htonl(packet.flags);
     *(uint32_t *)(buffer + 4) = htonl(packet.seq_num);
@@ -44,6 +45,7 @@ void serialize_packet(tcp_packet_t packet, char *buffer) {
     memcpy(buffer + 14, packet.payload, packet.payload_len);
 }
 
+// Deserialize from buffer into packet
 void deserialize_packet(char * buffer, tcp_packet_t* packet) {
     packet->flags = ntohl(*(uint32_t *)buffer);
     packet->seq_num = ntohl(*(uint32_t *)(buffer + 4));
