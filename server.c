@@ -30,8 +30,9 @@ int main() {
 
     // init connection
     connection_t connection;
-    connection.curr_seq = rand();
     connection.state = CLOSED;
+    connection.initial_seq = rand();
+    connection.curr_seq = connection.initial_seq;
 
     while (1) {
         ssize_t received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &client_addr_len);

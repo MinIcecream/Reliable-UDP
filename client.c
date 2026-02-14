@@ -7,7 +7,8 @@
 #include <stdlib.h>
 #include <sys/select.h>
 
-const char* MSG = "Hello world";
+const char* MSG = "HELLO WORLD!";
+const int BYTES_PER_PAYLOAD = 5;
 
 // if timeout during handshake, close connection
 // Else, resend last data packet
@@ -52,15 +53,18 @@ void handle_state(connection_t* connection, tcp_packet_t packet, int socket_id, 
                 memset(&data_packet, 0, sizeof(data_packet));
                 data_packet.flags = FLAG_DAT;
                 data_packet.seq_num = connection -> curr_seq;
-                strcpy(data_packet.payload, "Hello server!");
-                data_packet.payload_len = strlen(data_packet.payload);
+                int start = connection -> curr_seq - connection -> initial_seq - 1;
+                int data_len = bytes_to_send(MSG, start);
+                // TODO: Fix paylaod to send data_len bytes
+                memcpy(data_packet.payload, MSG + start, data_len);
+                data_packet.payload_len = data_len;
                 result = send_packet(data_packet, socket_id, &server_addr, server_addr_len);
                 if (result != 0) {
                     fprintf(stderr, "Failed to send data packet\n");
                     return;
                 }
                 printf("sent data packet with seq_num: %u\n", data_packet.seq_num);
-                connection -> curr_seq += data_packet.payload_len;
+                connection -> curr_seq += data_len;
 
             }
             else {
@@ -75,9 +79,35 @@ void handle_state(connection_t* connection, tcp_packet_t packet, int socket_id, 
             printf("curr_seq: %u, next_expected: %u\n", connection -> curr_seq, connection -> next_expected);
             if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection -> curr_seq) {
                 printf("Received ACK for data packet!\n");
+                // send next string.
+                // Otherwise, if sent last string, close connection.
+                if (connection -> curr_seq == connection->initial_seq + 1 + strlen(MSG)) {
+                    printf("All packets fully ACK'd! Can close connection.\n");
+                    connection -> state = CLOSED;
+                }
+                else {
+                    // send packet. increment curr_seq, last_sent_index
+                    printf("Sending next data!\n");
+                    tcp_packet_t data_packet;
+                    memset(&data_packet, 0, sizeof(data_packet));
+                    data_packet.flags = FLAG_DAT;
+                    data_packet.seq_num = connection -> curr_seq;
+                    int start = connection -> curr_seq - connection -> initial_seq - 1;
+                    int data_len = bytes_to_send(MSG, start);
+                    // TODO: Fix paylaod to send data_len bytes
+                    memcpy(data_packet.payload, MSG + start, data_len);
+                    data_packet.payload_len = data_len;
+                    int result = send_packet(data_packet, socket_id, &server_addr, server_addr_len);
+                    if (result != 0) {
+                        fprintf(stderr, "Failed to send data packet\n");
+                        return;
+                    }
+                    printf("sent data packet with seq_num: %u\n", data_packet.seq_num);
+                    connection -> curr_seq += data_len;
+                }
             }
             else {
-                fprintf(stderr, "Failed to receive ACK for data packet\n");
+                fprintf(stderr, "Received invalid ack!\n");
             }
             break;
         default:
@@ -103,8 +133,9 @@ int main() {
     socklen_t server_addr_len = sizeof(server_addr);
 
     // init connection
-    connection_t connection;
-    connection.curr_seq = rand();
+    connection_t connection; 
+    connection.initial_seq = rand();
+    connection.curr_seq = connection.initial_seq;
     connection.state = CLOSED;
 
     // Initiate connection
