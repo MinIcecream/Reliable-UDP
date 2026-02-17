@@ -1,3 +1,1 @@
-1. Make client send a FIN upon sending all data.
-2. Cleanup code signifantly. DRY
 3. Implement sliding window

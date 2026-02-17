@@ -1,12 +1,14 @@
-CFLAGS = -Wall -Wextra -std=c11
+CFLAGS = -Wall -Wextra -std=c11 -Iinclude
+
+SOURCES_COMMON = src/packet.c src/transport.c src/connection.c
 
 all: server client
 
-server: server.c packet.c transport.c connection.c
-	gcc $(CFLAGS) -o server server.c packet.c transport.c connection.c
+server: src/server.c $(SOURCES_COMMON)
+	gcc $(CFLAGS) -o server src/server.c $(SOURCES_COMMON)
 
-client: client.c packet.c transport.c connection.c
-	gcc $(CFLAGS) -o client client.c packet.c transport.c connection.c
+client: src/client.c $(SOURCES_COMMON)
+	gcc $(CFLAGS) -o client src/client.c $(SOURCES_COMMON)
 
 clean:
 	rm -f server client
