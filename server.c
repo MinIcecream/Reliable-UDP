@@ -79,26 +79,48 @@ int main() {
             case ESTABLISHED:
                 // if packet seq_number not expected, resend previous ack.
                 // else, send ACK for packet and process payload.
-                if (packet.seq_num == connection.next_expected) {
-                    printf("received expected packet!\n");
-                    connection.next_expected += packet.payload_len;
-                    printf("Received data: %.*s\n", packet.payload_len, packet.payload);
+                if ((packet.flags & FLAG_FIN) == FLAG_FIN) {
+                    printf("Received FIN from client!\n");
+                    connection.state = FIN_SENT;
 
-                    tcp_packet_t ack_packet;
-                    memset(&ack_packet, 0, sizeof(ack_packet));
-                    ack_packet.flags = FLAG_ACK;
-                    ack_packet.seq_num = connection.curr_seq;
-                    ack_packet.ack = connection.next_expected;
-                    serialize_packet(ack_packet, buffer);
-                    int result = send_packet(ack_packet, socket_id, &client_addr, client_addr_len);
+                    tcp_packet_t fin_ack_packet;
+                    memset(&fin_ack_packet, 0, sizeof(fin_ack_packet));
+                    fin_ack_packet.flags = FLAG_ACK;
+                    fin_ack_packet.seq_num = connection.curr_seq;
+                    fin_ack_packet.ack = packet.seq_num + 1;
+                    serialize_packet(fin_ack_packet, buffer);
+                    int result = send_packet(fin_ack_packet, socket_id, &client_addr, client_addr_len);
                     if (result != 0) {
-                        fprintf(stderr, "Failed to send ACK packet\n");
+                        fprintf(stderr, "Failed to send ACK for FIN packet\n");
                         continue;
                     }
-                    printf("Sent ACK packet with seq_num: %u and ack: %u\n", ack_packet.seq_num, ack_packet.ack);
+                    printf("Sent ACK for FIN with seq_num: %u and ack: %u\n", fin_ack_packet.seq_num, fin_ack_packet.ack);
+                    connection.curr_seq += 1;
+                    connection.next_expected += 1;
+                    connection.state = CLOSED;
                 }
-                else {
-                    fprintf(stderr, "Received out of order packet. Expected seq_num: %u but got seq_num: %u\n", connection.next_expected, packet.seq_num);
+                else if (packet.flags & FLAG_DAT) {
+                    if (packet.seq_num == connection.next_expected) {
+                        printf("received expected packet!\n");
+                        connection.next_expected += packet.payload_len;
+                        printf("Received data: %.*s\n", packet.payload_len, packet.payload);
+
+                        tcp_packet_t ack_packet;
+                        memset(&ack_packet, 0, sizeof(ack_packet));
+                        ack_packet.flags = FLAG_ACK;
+                        ack_packet.seq_num = connection.curr_seq;
+                        ack_packet.ack = connection.next_expected;
+                        serialize_packet(ack_packet, buffer);
+                        int result = send_packet(ack_packet, socket_id, &client_addr, client_addr_len);
+                        if (result != 0) {
+                            fprintf(stderr, "Failed to send ACK packet\n");
+                            continue;
+                        }
+                        printf("Sent ACK packet with seq_num: %u and ack: %u\n", ack_packet.seq_num, ack_packet.ack);
+                    }
+                    else {
+                        fprintf(stderr, "Received out of order packet. Expected seq_num: %u but got seq_num: %u\n", connection.next_expected, packet.seq_num);
+                    }
                 }
                 break;
             default:

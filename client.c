@@ -82,8 +82,18 @@ void handle_state(connection_t* connection, tcp_packet_t packet, int socket_id, 
                 // send next string.
                 // Otherwise, if sent last string, close connection.
                 if (connection -> curr_seq == connection->initial_seq + 1 + strlen(MSG)) {
-                    printf("All packets fully ACK'd! Can close connection.\n");
-                    connection -> state = CLOSED;
+                    printf("All packets fully ACK'd! Sending FIN.\n");
+                    tcp_packet_t fin_packet;
+                    memset(&fin_packet, 0, sizeof(fin_packet));
+                    fin_packet.flags = FLAG_FIN;
+                    fin_packet.seq_num = connection -> curr_seq;
+                    int result = send_packet(fin_packet, socket_id, &server_addr, server_addr_len);
+                    if (result != 0) {
+                        fprintf(stderr, "Failed to send FIN packet\n");
+                        return;
+                    }
+                    connection -> state = FIN_SENT;
+                    connection -> curr_seq += 1;
                 }
                 else {
                     // send packet. increment curr_seq, last_sent_index
@@ -108,6 +118,16 @@ void handle_state(connection_t* connection, tcp_packet_t packet, int socket_id, 
             }
             else {
                 fprintf(stderr, "Received invalid ack!\n");
+            }
+            break;
+        case FIN_SENT:
+            // if receive ACK for FIN, transition to CLOSED. Else, resend FIN.
+            if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection -> curr_seq) {
+                printf("Received ACK for FIN, connection closed!\n");
+                connection -> state = CLOSED;
+            }
+            else {
+                fprintf(stderr, "Failed to receive ACK for FIN!\n");
             }
             break;
         default:

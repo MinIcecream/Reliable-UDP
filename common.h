@@ -27,6 +27,7 @@ typedef enum {
     SYN_SENT,
     SYN_RECEIVED,
     ESTABLISHED,
+    FIN_SENT,
     CLOSED,
 } connection_state_t;
 
