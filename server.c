@@ -26,8 +26,7 @@ int main() {
     }
 
     // init buffer and client address
-    const uint32_t WINDOW_SIZE = 1052;
-    char buffer[WINDOW_SIZE];
+    char buffer[MAX_PACKET_SIZE];
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
 

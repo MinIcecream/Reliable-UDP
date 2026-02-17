@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define MAX_PAYLOAD_SIZE 1024
+#define MAX_PAYLOAD_SIZE 5
 #define MAX_PACKET_SIZE (14 + MAX_PAYLOAD_SIZE) // 14 bytes for header
 
 #define FLAG_ACK 0x1

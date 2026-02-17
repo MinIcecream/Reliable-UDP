@@ -24,7 +24,7 @@ static int send_ack_packet(int socket_id, struct sockaddr_in *addr, socklen_t ad
 
 // Given a message and starting at start_index, return number of bytes to send.
 static int bytes_to_send(const char *message, int start_index) {
-    int bytes = 2 + rand() % (10 - 2 + 1);
+    int bytes = MAX_PAYLOAD_SIZE;
     if (start_index + bytes - 1 >= (int)strlen(message)) {
         bytes = (int)strlen(message) - start_index;
     }

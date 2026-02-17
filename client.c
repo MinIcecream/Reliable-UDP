@@ -44,7 +44,7 @@ int main() {
     connection.curr_seq += 1;
     connection.state = SYN_SENT;
 
-    char buffer[MAX_PAYLOAD_SIZE];
+    char buffer[MAX_PACKET_SIZE];
     fd_set readfds;
     FD_ZERO(&readfds);
     FD_SET(socket_id, &readfds);
