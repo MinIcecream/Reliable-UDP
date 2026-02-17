@@ -53,7 +53,6 @@ int main() {
     tv.tv_usec = 0;
 
     while (connection.state != CLOSED) {
-
         int ret = select(socket_id + 1, &readfds, NULL, NULL, &tv);
         if (ret > 0) {
             int received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_addr_len);

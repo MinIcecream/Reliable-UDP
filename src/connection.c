@@ -86,14 +86,11 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
             }
             break;
         case ESTABLISHED:
-            // if receive expected ack within timeout, send next packet.
-            // Else, resend.
             printf("Received packet with seq_num: %u and ack: %u\n", packet.seq_num, packet.ack);
             printf("curr_seq: %u, next_expected: %u\n", connection->curr_seq, connection->next_expected);
             if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection->curr_seq) {
                 printf("Received ACK for data packet!\n");
-                // send next string.
-                // Otherwise, if sent last string, close connection.
+                // If sent last string, close connection.
                 if (connection->curr_seq == connection->initial_seq + 1 + strlen(kMsg)) {
                     printf("All packets fully ACK'd! Sending FIN.\n");
                     tcp_packet_t fin_packet;

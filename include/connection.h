@@ -20,6 +20,7 @@ typedef struct {
     uint32_t initial_seq; // Initial generated sequence number.
     uint32_t next_expected; // Next expected byte to receive from peer
     connection_state_t state;
+    uint32_t send_base; // Oldest unacknowledged seq number.
 } connection_t;
 
 void client_handle_timeout(connection_t *connection);
