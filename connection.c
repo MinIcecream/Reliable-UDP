@@ -8,6 +8,20 @@
 
 static const char *kMsg = "HELLO WORLD!";
 
+static void packet_init(tcp_packet_t *packet, uint32_t flags, uint32_t seq_num, uint32_t ack) {
+    memset(packet, 0, sizeof(*packet));
+    packet->flags = flags;
+    packet->seq_num = seq_num;
+    packet->ack = ack;
+}
+
+static int send_ack_packet(int socket_id, struct sockaddr_in *addr, socklen_t addr_len,
+                           uint32_t seq_num, uint32_t ack_num) {
+    tcp_packet_t ack_packet;
+    packet_init(&ack_packet, FLAG_ACK, seq_num, ack_num);
+    return send_packet(ack_packet, socket_id, addr, addr_len);
+}
+
 // Given a message and starting at start_index, return number of bytes to send.
 static int bytes_to_send(const char *message, int start_index) {
     int bytes = 2 + rand() % (10 - 2 + 1);
@@ -41,25 +55,20 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                 printf("Received SYN_ACK!\n");
                 connection->next_expected = packet.seq_num + 1;
                 connection->state = ESTABLISHED;
-                tcp_packet_t ack_packet;
-                memset(&ack_packet, 0, sizeof(ack_packet));
-                ack_packet.flags = FLAG_ACK;
-                ack_packet.seq_num = connection->curr_seq;
-                ack_packet.ack = connection->next_expected;
-                int result = send_packet(ack_packet, socket_id, &server_addr, server_addr_len);
+                int result = send_ack_packet(socket_id, &server_addr, server_addr_len,
+                                             connection->curr_seq, connection->next_expected);
                 if (result != 0) {
                     fprintf(stderr, "Failed to send ACK packet\n");
                     return;
                 }
                 // Do NOT update curr_seq since ACK does not consume sequence number
-                printf("Sent ACK packet with seq_num: %u and ack: %u\n", ack_packet.seq_num, ack_packet.ack);
+                printf("Sent ACK packet with seq_num: %u and ack: %u\n", connection->curr_seq,
+                       connection->next_expected);
                 printf("Connection established!\n");
 
                 // Connection established. Send first data packet.
                 tcp_packet_t data_packet;
-                memset(&data_packet, 0, sizeof(data_packet));
-                data_packet.flags = FLAG_DAT;
-                data_packet.seq_num = connection->curr_seq;
+                packet_init(&data_packet, FLAG_DAT, connection->curr_seq, 0);
                 int start = (int)(connection->curr_seq - connection->initial_seq - 1);
                 int data_len = bytes_to_send(kMsg, start);
                 memcpy(data_packet.payload, kMsg + start, data_len);
@@ -88,9 +97,7 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                 if (connection->curr_seq == connection->initial_seq + 1 + strlen(kMsg)) {
                     printf("All packets fully ACK'd! Sending FIN.\n");
                     tcp_packet_t fin_packet;
-                    memset(&fin_packet, 0, sizeof(fin_packet));
-                    fin_packet.flags = FLAG_FIN;
-                    fin_packet.seq_num = connection->curr_seq;
+                    packet_init(&fin_packet, FLAG_FIN, connection->curr_seq, 0);
                     int result = send_packet(fin_packet, socket_id, &server_addr, server_addr_len);
                     if (result != 0) {
                         fprintf(stderr, "Failed to send FIN packet\n");
@@ -102,9 +109,7 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                     // send packet. increment curr_seq, last_sent_index
                     printf("Sending next data!\n");
                     tcp_packet_t data_packet;
-                    memset(&data_packet, 0, sizeof(data_packet));
-                    data_packet.flags = FLAG_DAT;
-                    data_packet.seq_num = connection->curr_seq;
+                    packet_init(&data_packet, FLAG_DAT, connection->curr_seq, 0);
                     int start = (int)(connection->curr_seq - connection->initial_seq - 1);
                     int data_len = bytes_to_send(kMsg, start);
                     memcpy(data_packet.payload, kMsg + start, data_len);
@@ -147,10 +152,8 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                 connection->next_expected = packet.seq_num + 1;
 
                 tcp_packet_t syn_ack_packet;
-                memset(&syn_ack_packet, 0, sizeof(syn_ack_packet));
-                syn_ack_packet.flags = FLAG_SYN | FLAG_ACK;
-                syn_ack_packet.seq_num = connection->curr_seq;
-                syn_ack_packet.ack = connection->next_expected;
+                packet_init(&syn_ack_packet, FLAG_SYN | FLAG_ACK, connection->curr_seq,
+                            connection->next_expected);
                 serialize_packet(syn_ack_packet, buffer);
                 int result = send_packet(syn_ack_packet, socket_id, &client_addr, client_addr_len);
                 if (result != 0) {
@@ -181,19 +184,14 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                 printf("Received FIN from client!\n");
                 connection->state = FIN_SENT;
 
-                tcp_packet_t fin_ack_packet;
-                memset(&fin_ack_packet, 0, sizeof(fin_ack_packet));
-                fin_ack_packet.flags = FLAG_ACK;
-                fin_ack_packet.seq_num = connection->curr_seq;
-                fin_ack_packet.ack = packet.seq_num + 1;
-                serialize_packet(fin_ack_packet, buffer);
-                int result = send_packet(fin_ack_packet, socket_id, &client_addr, client_addr_len);
+                  int result = send_ack_packet(socket_id, &client_addr, client_addr_len,
+                                   connection->curr_seq, packet.seq_num + 1);
                 if (result != 0) {
                     fprintf(stderr, "Failed to send ACK for FIN packet\n");
                     return;
                 }
-                printf("Sent ACK for FIN with seq_num: %u and ack: %u\n", fin_ack_packet.seq_num,
-                       fin_ack_packet.ack);
+                  printf("Sent ACK for FIN with seq_num: %u and ack: %u\n", connection->curr_seq,
+                      packet.seq_num + 1);
                 connection->curr_seq += 1;
                 connection->next_expected += 1;
                 connection->state = CLOSED;
@@ -203,19 +201,14 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                     connection->next_expected += packet.payload_len;
                     printf("Received data: %.*s\n", packet.payload_len, packet.payload);
 
-                    tcp_packet_t ack_packet;
-                    memset(&ack_packet, 0, sizeof(ack_packet));
-                    ack_packet.flags = FLAG_ACK;
-                    ack_packet.seq_num = connection->curr_seq;
-                    ack_packet.ack = connection->next_expected;
-                    serialize_packet(ack_packet, buffer);
-                    int result = send_packet(ack_packet, socket_id, &client_addr, client_addr_len);
+                          int result = send_ack_packet(socket_id, &client_addr, client_addr_len,
+                                        connection->curr_seq, connection->next_expected);
                     if (result != 0) {
                         fprintf(stderr, "Failed to send ACK packet\n");
                         return;
                     }
-                    printf("Sent ACK packet with seq_num: %u and ack: %u\n", ack_packet.seq_num,
-                           ack_packet.ack);
+                          printf("Sent ACK packet with seq_num: %u and ack: %u\n", connection->curr_seq,
+                              connection->next_expected);
                 } else {
                     fprintf(stderr,
                             "Received out of order packet. Expected seq_num: %u but got seq_num: %u\n",
