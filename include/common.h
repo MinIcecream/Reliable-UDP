@@ -7,8 +7,8 @@
 #define LOG_PATH "reliable_udp.log"
 
 // Packet drop simulation (percentage: 0-100)
-#define DROP_ACK_PERCENT 50
-#define DROP_DAT_PERCENT 75
+#define DROP_ACK_PERCENT 75
+#define DROP_DAT_PERCENT 0
 #define DROP_FIN_PERCENT 0
 
 #endif // COMMON_H

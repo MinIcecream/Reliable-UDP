@@ -56,10 +56,10 @@ void client_send_packets(connection_t *connection, int socket_id, struct sockadd
 void client_handle_timeout(connection_t *connection, int socket_id, struct sockaddr_in server_addr,
                          socklen_t server_addr_len) {
     switch (connection->state) {
-        case ESTABLISHED:
+        case ESTABLISHED:            
+            LOG_WARN("Timeout during data send, resending packets");
             connection->curr_seq = connection->send_base + 1;
             client_send_packets(connection, socket_id, server_addr, server_addr_len);
-            LOG_WARN("Timeout during data send, resending packets");
             break;
         case FIN_SENT:
             LOG_WARN("Timeout during connection termination, resending FIN packet");
@@ -90,7 +90,7 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                 connection->next_expected = packet.seq_num + 1;
                 connection->state = ESTABLISHED;
                 int result = send_ack_packet(socket_id, &server_addr, server_addr_len,
-                                             connection->curr_seq, connection->next_expected);
+                    connection->curr_seq, connection->next_expected);
                 if (result != 0) {
                     return;
                 }
@@ -199,8 +199,12 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                         return;
                     }
                 } else {
-                    LOG_WARN("Received out of order packet. Expected seq_num: %u but got seq_num: %u",
-                        connection->next_expected, packet.seq_num);
+                    LOG_WARN("Received out of order packet, resending last ACK");
+                    int result = send_ack_packet(socket_id, &client_addr, client_addr_len,
+                        connection->curr_seq, connection->next_expected);
+                    if (result != 0) {
+                        return;
+                    }
                 }
             }
             break;
