@@ -2,18 +2,21 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include <string.h>
 #include "common.h"
 #include "connection.h"
 #include <stdlib.h>
 #include <sys/select.h>
 #include "transport.h"
+#include "logger.h"
 
 int main() {
+    log_init(LOG_SOURCE_CLIENT, LOG_PATH);
     int socket_id = socket(AF_INET, SOCK_DGRAM, 0);
 
     if (socket_id < 0) {
-        perror("Socket creation failed");
+        LOG_SYS_ERROR("Socket creation failed: %s", strerror(errno));
         return 1;
     }
 
@@ -38,10 +41,10 @@ int main() {
     syn_packet.seq_num = connection.curr_seq;
     int result = send_packet(syn_packet, socket_id, &server_addr, server_addr_len);
     if (result != 0) {
-        fprintf(stderr, "Failed to send SYN packet\n");
+        LOG_ERROR("Failed to send SYN packet");
         return 1;
     }
-    printf("Sent SYN packet with seq_num: %u\n", connection.curr_seq);
+    LOG_INFO("Sent SYN packet with seq_num: %u", connection.curr_seq);
     connection.curr_seq += 1;
     connection.send_base += 1;
     connection.state = SYN_SENT;
@@ -60,7 +63,7 @@ int main() {
             int received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&server_addr, &server_addr_len);
 
             if (received_msg_len < 0) {
-                perror("Receive failed");
+                LOG_SYS_ERROR("Receive failed: %s", strerror(errno));
                 continue;
             }
             tcp_packet_t packet;
@@ -71,7 +74,7 @@ int main() {
             client_handle_timeout(&connection, socket_id, server_addr, server_addr_len);
         }
         else {
-            perror("Select failed");
+            LOG_SYS_ERROR("Select failed: %s", strerror(errno));
         }
       }
     return 0;    

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "transport.h"
+#include "logger.h"
 
 static const char *kMsg = "HELLO WORLD!";
 
@@ -45,7 +46,7 @@ void client_send_packets(connection_t *connection, int socket_id, struct sockadd
         data_packet.payload_len = data_len;
         int result = send_packet(data_packet, socket_id, &server_addr, server_addr_len);
         if (result != 0) {
-            fprintf(stderr, "Failed to send data packet\n");
+            LOG_ERROR("Failed to send data packet");
             return;
         }
         connection -> curr_seq += data_len;
@@ -59,20 +60,20 @@ void client_handle_timeout(connection_t *connection, int socket_id, struct socka
         case ESTABLISHED:
             connection->curr_seq = connection->send_base + 1;
             client_send_packets(connection, socket_id, server_addr, server_addr_len);
-            printf("timeout during data send! Resending packets\n");
+            LOG_WARN("Timeout during data send, resending packets");
             break;
         case FIN_SENT:
-            printf("timeout during connection termination! Resending FIN packet, seq num %u\n", connection->curr_seq);
+            LOG_WARN("Timeout during connection termination, resending FIN packet, seq num %u", connection->curr_seq);
             tcp_packet_t fin_packet;
             packet_init(&fin_packet, FLAG_FIN, connection->curr_seq, 0);
             int result = send_packet(fin_packet, socket_id, &server_addr, server_addr_len);
             if (result != 0) {
-                fprintf(stderr, "Failed to resend FIN packet\n");
+                LOG_ERROR("Failed to resend FIN packet");
                 return;
             }
             break;
         default:
-            printf("Timeout during handshake! Closing!\n");
+            LOG_WARN("Timeout during handshake, closing");
             connection->state = CLOSED;
             break;
     }
@@ -86,40 +87,40 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
             // else, close connection and exit.
             if ((packet.flags & (FLAG_SYN | FLAG_ACK)) == (FLAG_SYN | FLAG_ACK) &&
                 packet.ack == connection->curr_seq) {
-                printf("Received SYN_ACK!\n");
+                LOG_INFO("Received SYN_ACK");
                 connection->next_expected = packet.seq_num + 1;
                 connection->state = ESTABLISHED;
                 int result = send_ack_packet(socket_id, &server_addr, server_addr_len,
                                              connection->curr_seq, connection->next_expected);
                 if (result != 0) {
-                    fprintf(stderr, "Failed to send ACK packet\n");
+                    LOG_ERROR("Failed to send ACK packet");
                     return;
                 }
                 // Do NOT update curr_seq since ACK does not consume sequence number
-                printf("Sent ACK packet with seq_num: %u and ack: %u\n", connection->curr_seq,
+                LOG_INFO("Sent ACK packet with seq_num: %u and ack: %u", connection->curr_seq,
                        connection->next_expected);
-                printf("Connection established!\n");
+                LOG_INFO("Connection established");
 
                 // Connection established. Send first data packet.
                 client_send_packets(connection, socket_id, server_addr, server_addr_len);
             } else {
-                fprintf(stderr, "Failed to establish connection: expected SYN-ACK packet\n");
+                LOG_ERROR("Failed to establish connection: expected SYN-ACK packet");
                 return;
             }
             break;
         case ESTABLISHED:
-            printf("Received ACK packet with seq_num: %u and ack: %u\n", packet.seq_num, packet.ack);
-            printf("curr_seq: %u, next_expected: %u, send_base: %u\n", connection->curr_seq, connection->next_expected, connection->send_base);
+            LOG_INFO("Received ACK packet with seq_num: %u and ack: %u", packet.seq_num, packet.ack);
+            LOG_DEBUG("curr_seq: %u, next_expected: %u, send_base: %u", connection->curr_seq, connection->next_expected, connection->send_base);
             if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack > connection->send_base && packet.ack <= connection->curr_seq) {
                 connection->send_base = packet.ack - 1;
                 // If sent last string, close connection.
                 if (connection->send_base == connection->initial_seq + strlen(kMsg)) {
-                    printf("All packets fully ACK'd! Sending FIN.\n");
+                    LOG_INFO("All packets fully ACK'd, sending FIN");
                     tcp_packet_t fin_packet;
                     packet_init(&fin_packet, FLAG_FIN, connection->curr_seq, 0);
                     int result = send_packet(fin_packet, socket_id, &server_addr, server_addr_len);
                     if (result != 0) {
-                        fprintf(stderr, "Failed to send FIN packet\n");
+                        LOG_ERROR("Failed to send FIN packet");
                         return;
                     }
                     connection->state = FIN_SENT;
@@ -129,16 +130,16 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                     client_send_packets(connection, socket_id, server_addr, server_addr_len);
                 }
             } else {
-                fprintf(stderr, "Received invalid ack!\n");
+                LOG_WARN("Received invalid ack");
             }
             break;
         case FIN_SENT:
             // if receive ACK for FIN, transition to CLOSED. Else, resend FIN.
             if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection->curr_seq) {
-                printf("Received ACK for FIN, connection closed!\n");
+                LOG_INFO("Received ACK for FIN, connection closed");
                 connection->state = CLOSED;
             } else {
-                fprintf(stderr, "Failed to receive ACK for FIN!\n");
+                LOG_WARN("Failed to receive ACK for FIN");
             }
             break;
         default:
@@ -163,11 +164,11 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                 serialize_packet(syn_ack_packet, buffer);
                 int result = send_packet(syn_ack_packet, socket_id, &client_addr, client_addr_len);
                 if (result != 0) {
-                    fprintf(stderr, "Failed to send SYN-ACK packet\n");
+                    LOG_ERROR("Failed to send SYN-ACK packet");
                     return;
                 }
                 connection->state = SYN_RECEIVED;
-                printf("Sent SYN-ACK packet with seq_num: %u and ack: %u\n", syn_ack_packet.seq_num,
+                LOG_INFO("Sent SYN-ACK packet with seq_num: %u and ack: %u", syn_ack_packet.seq_num,
                        syn_ack_packet.ack);
             }
             break;
@@ -175,10 +176,11 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
             // if client responds with ACK and ACK is correct, transition to ESTABLISHED.
             // else, close connection and exit.
             if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection->curr_seq + 1) {
-                printf("Received ACK, connection established!\n");
+                LOG_INFO("Received ACK, connection established");
+                set_connection_established(1);
                 connection->state = ESTABLISHED;
             } else {
-                fprintf(stderr, "Failed to establish connection, expected ACK with ack_num: %u\n",
+                LOG_ERROR("Failed to establish connection, expected ACK with ack_num: %u",
                         connection->curr_seq + 1);
                 connection->state = CLOSED;
             }
@@ -187,37 +189,38 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
             // if packet seq_number not expected, resend previous ack.
             // else, send ACK for packet and process payload.
             if ((packet.flags & FLAG_FIN) == FLAG_FIN) {
-                printf("Received FIN from client!\n");
+                LOG_INFO("Received FIN from client");
+                set_connection_established(0);
+
                 connection->state = FIN_SENT;
 
                   int result = send_ack_packet(socket_id, &client_addr, client_addr_len,
                                    connection->curr_seq, packet.seq_num + 1);
                 if (result != 0) {
-                    fprintf(stderr, "Failed to send ACK for FIN packet\n");
+                                        LOG_ERROR("Failed to send ACK for FIN packet");
                     return;
                 }
-                  printf("Sent ACK for FIN with seq_num: %u and ack: %u\n", connection->curr_seq,
-                      packet.seq_num + 1);
+                                    LOG_INFO("Sent ACK for FIN with seq_num: %u and ack: %u", connection->curr_seq,
+                                            packet.seq_num + 1);
                 connection->curr_seq += 1;
                 connection->next_expected += 1;
                 connection->state = CLOSED;
             } else if (packet.flags & FLAG_DAT) {
                 if (packet.seq_num == connection->next_expected) {
-                    printf("received expected packet!\n");
+                                        LOG_DEBUG("Received expected packet");
                     connection->next_expected += packet.payload_len;
-                    printf("Received data: %.*s\n", packet.payload_len, packet.payload);
+                                        LOG_INFO("Received data: %.*s", packet.payload_len, packet.payload);
 
                           int result = send_ack_packet(socket_id, &client_addr, client_addr_len,
                                         connection->curr_seq, connection->next_expected);
                     if (result != 0) {
-                        fprintf(stderr, "Failed to send ACK packet\n");
+                        LOG_ERROR("Failed to send ACK packet");
                         return;
                     }
-                          printf("Sent ACK packet with seq_num: %u and ack: %u\n", connection->curr_seq,
+                          LOG_INFO("Sent ACK packet with seq_num: %u and ack: %u", connection->curr_seq,
                               connection->next_expected);
                 } else {
-                    fprintf(stderr,
-                            "Received out of order packet. Expected seq_num: %u but got seq_num: %u\n",
+                    LOG_WARN("Received out of order packet. Expected seq_num: %u but got seq_num: %u",
                             connection->next_expected, packet.seq_num);
                 }
             }

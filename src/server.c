@@ -1,15 +1,19 @@
 #include <stdio.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <errno.h>
+#include <string.h>
 #include "common.h"
 #include "connection.h"
 #include "transport.h"
 #include <stdlib.h>
+#include "logger.h"
 
 int main() {
+    log_init(LOG_SOURCE_SERVER, LOG_PATH);
     int socket_id = socket(AF_INET, SOCK_DGRAM, 0);
     if (socket_id < 0) {
-        perror("Socket creation failed");
+        LOG_SYS_ERROR("Socket creation failed: %s", strerror(errno));
         return 1;
     }
 
@@ -21,7 +25,7 @@ int main() {
 
     // bind socket
     if (bind(socket_id, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-        perror("Bind failed");
+        LOG_SYS_ERROR("Bind failed: %s", strerror(errno));
         return 1;
     }
 
@@ -39,7 +43,7 @@ int main() {
     while (1) {
         ssize_t received_msg_len = recvfrom(socket_id, buffer, sizeof(buffer), 0, (struct sockaddr *)&client_addr, &client_addr_len);
         if (received_msg_len < 0) {
-            perror("Receive failed");
+            LOG_SYS_ERROR("Receive failed: %s", strerror(errno));
             continue;
         }
 
