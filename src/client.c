@@ -41,10 +41,8 @@ int main() {
     syn_packet.seq_num = connection.curr_seq;
     int result = send_packet(syn_packet, socket_id, &server_addr, server_addr_len);
     if (result != 0) {
-        LOG_ERROR("Failed to send SYN packet");
         return 1;
     }
-    LOG_INFO("Sent SYN packet with seq_num: %u", connection.curr_seq);
     connection.curr_seq += 1;
     connection.send_base += 1;
     connection.state = SYN_SENT;

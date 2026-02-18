@@ -1,5 +1,5 @@
 #include "packet.h"
-
+#include <stdio.h>
 #include <arpa/inet.h>
 #include <string.h>
 #include "logger.h"
@@ -20,8 +20,20 @@ void deserialize_packet(char *buffer, tcp_packet_t *packet) {
     memcpy(packet->payload, buffer + 14, packet->payload_len);
 }
 
-void print_packet(tcp_packet_t packet) {
-    LOG_DEBUG("Packet - Flags: 0x%x, Seq: %u, Ack: %u, Payload Len: %u, Payload: %.*s",
-              packet.flags, packet.seq_num, packet.ack, packet.payload_len,
-              packet.payload_len, packet.payload);
+#define N_BUFFERS 4
+#define BUFFER_SIZE 256
+
+char* to_string(tcp_packet_t packet) {
+    static char buffers[N_BUFFERS][BUFFER_SIZE];
+    static int index = 0;
+
+    char* buffer = buffers[index];
+    index = (index + 1) % N_BUFFERS;
+
+    snprintf(buffer, BUFFER_SIZE,
+        "Packet - Flags: 0x%x, Seq: %u, Ack: %u, Payload Len: %u, Payload: %.*s",
+        packet.flags, packet.seq_num, packet.ack, packet.payload_len,
+        packet.payload_len, packet.payload);
+
+    return buffer;
 }

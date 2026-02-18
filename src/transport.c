@@ -39,8 +39,10 @@ static int should_drop_packet(uint32_t flags) {
 }
 
 int send_packet(tcp_packet_t packet, int socket_id, struct sockaddr_in *destination_addr, socklen_t destination_addr_len) {
+    LOG_INFO("Sending: %s", to_string(packet));
+
     if (should_drop_packet(packet.flags)) {
-        LOG_WARN("[DROP] Packet with flags 0x%x dropped", packet.flags);
+        LOG_WARN("[DROP] Dropped %s", to_string(packet));
         return 0;
     }
     
@@ -48,10 +50,9 @@ int send_packet(tcp_packet_t packet, int socket_id, struct sockaddr_in *destinat
     packet.seq_num = htonl(packet.seq_num);
     packet.ack = htonl(packet.ack);
     packet.payload_len = htons(packet.payload_len);
-
     ssize_t sent_bytes = sendto(socket_id, &packet, sizeof(packet), 0, (const struct sockaddr *)destination_addr, destination_addr_len);
     if (sent_bytes < 0) {
-        LOG_SYS_ERROR("Failed to send packet: %s", strerror(errno));
+        LOG_SYS_ERROR("Failed to send packet: %s", to_string(packet));
         return 1;
     }
     return 0;

@@ -21,6 +21,6 @@ typedef struct {
 
 void serialize_packet(tcp_packet_t packet, char *buffer);
 void deserialize_packet(char *buffer, tcp_packet_t *packet);
-void print_packet(tcp_packet_t packet);
+char* to_string(tcp_packet_t packet);
 
 #endif // PROTOCOL_H
