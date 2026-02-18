@@ -79,6 +79,8 @@ void client_handle_timeout(connection_t *connection, int socket_id, struct socka
 
 void client_handle_state(connection_t *connection, tcp_packet_t packet, int socket_id,
                          struct sockaddr_in server_addr, socklen_t server_addr_len) {
+    LOG_INFO("Received: %s", to_string(packet));
+
     switch (connection->state) {
         case SYN_SENT:
             // if server responds with SYN_ACK, send ACK and transition to ESTABLISHED.
@@ -125,7 +127,7 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
         case FIN_SENT:
             // if receive ACK for FIN, transition to CLOSED. Else, resend FIN.
             if ((packet.flags & FLAG_ACK) == FLAG_ACK && packet.ack == connection->curr_seq) {
-                LOG_INFO("Received ACK for FIN, connection closed");
+                LOG_INFO("Connection closed.");
                 connection->state = CLOSED;
             } else {
                 LOG_WARN("Expected ACK for FIN");
@@ -140,6 +142,7 @@ void client_handle_state(connection_t *connection, tcp_packet_t packet, int sock
 void server_handle_state(connection_t *connection, tcp_packet_t packet, int socket_id,
                          struct sockaddr_in client_addr, socklen_t client_addr_len,
                          char *buffer, size_t buffer_size) {
+    LOG_INFO("Received: %s", to_string(packet));
     (void)buffer_size;
     switch (connection->state) {
         case CLOSED:
@@ -183,6 +186,7 @@ void server_handle_state(connection_t *connection, tcp_packet_t packet, int sock
                 if (result != 0) {
                     return;
                 }
+                LOG_INFO("Connection closed.");
                 connection->curr_seq += 1;
                 connection->next_expected += 1;
                 connection->state = CLOSED;

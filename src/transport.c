@@ -23,7 +23,6 @@ static int should_drop_packet(uint32_t flags) {
     }
     
     int drop_percent = 0;
-    LOG_DEBUG("Deciding whether to drop packet with flags 0x%x", flags);
     if (flags & FLAG_ACK) {
         drop_percent = DROP_ACK_PERCENT;
     } else if (flags & FLAG_DAT) {
