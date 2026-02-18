@@ -29,6 +29,7 @@ int main() {
     connection.initial_seq = rand();
     connection.curr_seq = connection.initial_seq;
     connection.state = CLOSED;
+    connection.send_base = connection.initial_seq - 1;
 
     // Initiate connection
     tcp_packet_t syn_packet;
@@ -42,6 +43,7 @@ int main() {
     }
     printf("Sent SYN packet with seq_num: %u\n", connection.curr_seq);
     connection.curr_seq += 1;
+    connection.send_base += 1;
     connection.state = SYN_SENT;
 
     char buffer[MAX_PACKET_SIZE];
@@ -66,7 +68,7 @@ int main() {
             client_handle_state(&connection, packet, socket_id, server_addr, server_addr_len);
         }
         else if (ret == 0) {
-            client_handle_timeout(&connection);
+            client_handle_timeout(&connection, socket_id, server_addr, server_addr_len);
         }
         else {
             perror("Select failed");

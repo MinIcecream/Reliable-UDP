@@ -30,6 +30,8 @@ include/               # Header files
 
 ## Protocol Overview
 
+This implementation uses a **sliding window** protocol to manage packet transmission and acknowledgments, allowing multiple packets to be in flight simultaneously while ensuring reliable delivery.
+
 ### States
 <img src="images/diagram.png" alt="TCP Diagram" width="600"/>
 

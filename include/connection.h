@@ -7,6 +7,8 @@
 
 #include "packet.h"
 
+#define WINDOW_SIZE 5
+
 typedef enum {
     SYN_SENT,
     SYN_RECEIVED,
@@ -23,7 +25,8 @@ typedef struct {
     uint32_t send_base; // Oldest unacknowledged seq number.
 } connection_t;
 
-void client_handle_timeout(connection_t *connection);
+void client_handle_timeout(connection_t *connection, int socket_id, struct sockaddr_in server_addr,
+                         socklen_t server_addr_len);
 void client_handle_state(connection_t *connection, tcp_packet_t packet, int socket_id,
                          struct sockaddr_in server_addr, socklen_t server_addr_len);
 void server_handle_state(connection_t *connection, tcp_packet_t packet, int socket_id,
