@@ -18,10 +18,10 @@ void set_connection_established(int established) {
 
 static int should_drop_packet(uint32_t flags) {
     // Never drop packets during handshake
-    if (!connection_established) {
+    if (!connection_established && (flags & FLAG_ACK)) {
         return 0;
     }
-    
+
     int drop_percent = 0;
     if (flags & FLAG_ACK) {
         drop_percent = DROP_ACK_PERCENT;
